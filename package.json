@@ -1,0 +1,8 @@
+{
+  "name": "letterboxd-watchlist-finder",
+  "version": "1.0.0",
+  "scripts": {
+    "client": "cd client && npm run dev",
+    "server": "cd server && npm run dev"
+  }
+}
