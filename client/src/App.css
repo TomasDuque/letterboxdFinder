@@ -81,8 +81,9 @@ button:hover {
 }
 
 .results {
-  max-width: 1000px;
-  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .results h2 {
@@ -91,24 +92,29 @@ button:hover {
 
 .movie-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, 220px);
   gap: 24px;
+  justify-content: center;
 }
 
 .movie-card {
   background-color: #1f252b;
-  padding: 20px;
+  padding: 16px;
   border-radius: 12px;
   border: 1px solid #2c3440;
 
+  width: fit-content;
+
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  align-items: center;
+  gap: 8px;
 }
 
 .movie-card img {
-  width: 100%;
-  height: auto;
+  width: 220px;
+  height: 330px;
+  object-fit: cover;
   border-radius: 8px;
 }
 

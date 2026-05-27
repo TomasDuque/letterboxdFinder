@@ -14,6 +14,9 @@ function App() {
     "Prime Video",
     "Disney+",
     "Criterion",
+    "Paramount+",
+    "Peacock",
+    "Tubi"
   ];
 
 
@@ -28,25 +31,29 @@ function App() {
   const handleSearch = async () => {
     setHasSearched(true);
   
-    const fakeWatchlistTitles = [
-      "Y Tu Mamá También",
-      "No Other Choice",
-      "Sinners",
-      "The Dark Knight",
-    ];
+    const watchlistResponse = await fetch(
+      `http://localhost:5001/api/letterboxd-watchlist/${username}`
+    );
   
-    const response = await fetch("http://localhost:5001/api/watchlist/providers", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        watchlist: fakeWatchlistTitles,
-      }),
-    });
+    const watchlistData = await watchlistResponse.json();
+    console.log("Watchlist data:", watchlistData);  
+    const providersResponse = await fetch(
+      "http://localhost:5001/api/watchlist/providers",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          watchlist: watchlistData.movies,
+        }),
+      }
+    );
   
-    const data = await response.json();
-    setMovies(data);
+    const providerData = await providersResponse.json();
+
+    console.log("Provider data:", providerData);
+    setMovies(providerData);
   };
 
   const matchingMovies = movies.filter((movie) =>

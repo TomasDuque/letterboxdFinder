@@ -9,6 +9,35 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+const normalizeProviderName = (providerName) => {
+  const name = providerName.toLowerCase();
+
+  if (name.includes("netflix")) return "Netflix";
+  if (name.includes("hulu")) return "Hulu";
+  if (name.includes("max") || name.includes("hbo")) return "HBO Max";
+  if (name.includes("amazon") || name.includes("prime")) return "Prime Video";
+  if (name.includes("disney")) return "Disney+";
+  if (name.includes("criterion")) return "Criterion";
+  if (name.includes("peacock")) return "Peacock";
+  if (name.includes("paramount")) return "Paramount+";
+  if (name.includes("tubi")) return "Tubi";
+
+  return providerName;
+};
+
+
+const shouldIgnoreProvider = (providerName) => {
+  const name = providerName.toLowerCase();
+
+  return (
+    name.includes("amazon channel") ||
+    name.includes("roku premium channel") ||
+    name.includes("Paramount Plus Premium") ||
+    name.includes("apple tv channel") ||
+    name.includes("AMC+ Amazon Channel")
+  );
+};
+
 app.get("/", (req, res) => {
   res.send("Backend is running!");
 });
@@ -85,12 +114,16 @@ app.post("/api/watchlist/providers", async (req, res) => {
 
     const results = await Promise.all(
       watchlist.map(async (movieTitle) => {
+        const yearMatch = movieTitle.match(/\((\d{4})\)$/);
+        const letterboxdYear = yearMatch ? yearMatch[1] : null;
+        const cleanTitle = movieTitle.replace(/\s\(\d{4}\)$/, "");
         const searchResponse = await axios.get(
           "https://api.themoviedb.org/3/search/movie",
           {
             params: {
               api_key: process.env.TMDB_API_KEY,
-              query: movieTitle,
+              query: cleanTitle,
+              year: letterboxdYear,
             },
           }
         );
@@ -100,6 +133,7 @@ app.post("/api/watchlist/providers", async (req, res) => {
         if (!movie) {
           return {
             title: movieTitle,
+            searchedTitle: cleanTitle,
             found: false,
             providers: [],
           };
@@ -125,7 +159,13 @@ app.post("/api/watchlist/providers", async (req, res) => {
           poster: movie.poster_path
             ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
             : null,
-          providers: providers.map((provider) => provider.provider_name),
+            providers: [
+              ...new Set(
+                providers
+                  .filter((provider) => !shouldIgnoreProvider(provider.provider_name))
+                  .map((provider) => normalizeProviderName(provider.provider_name))
+              ),
+            ],
         };
       })
     );
@@ -134,28 +174,6 @@ app.post("/api/watchlist/providers", async (req, res) => {
   } catch (error) {
     console.error("Watchlist provider error:", error.message);
     res.status(500).json({ error: "Failed to process watchlist" });
-  }
-});
-
-app.get("/api/test-watchlist", async (req, res) => {
-  try {
-    const fakeWatchlist = [
-      "Y Tu Mama Tambien",
-      "Sinners",
-      "No Other Choice",
-    ];
-
-    const response = await axios.post(
-      "http://localhost:5001/api/watchlist/providers",
-      {
-        watchlist: fakeWatchlist,
-      }
-    );
-
-    res.json(response.data);
-  } catch (error) {
-    console.error(error.message);
-    res.status(500).json({ error: "Test failed" });
   }
 });
 
