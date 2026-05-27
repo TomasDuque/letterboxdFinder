@@ -4,39 +4,18 @@ import "./App.css";
 function App() {
   const [username, setUsername] = useState("");
   const [selectedServices, setSelectedServices] = useState([]);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [movies, setMovies] = useState([]);
 
   const streamingServices = [
     "Netflix",
     "Hulu",
-    "Max",
+    "HBO Max",
     "Prime Video",
     "Disney+",
     "Criterion",
   ];
 
-  const movies = [
-    {
-      title: "Parasite",
-      year: 2019,
-      service: "Hulu",
-      rating: 4.6,
-      runtime: "2h 12m",
-    },
-    {
-      title: "The Social Network",
-      year: 2010,
-      service: "Netflix",
-      rating: 4.1,
-      runtime: "2h 0m",
-    },
-    {
-      title: "Mad Max: Fury Road",
-      year: 2015,
-      service: "Max",
-      rating: 4.2,
-      runtime: "2h 0m",
-    },
-  ];
 
   const handleServiceChange = (service) => {
     if (selectedServices.includes(service)) {
@@ -46,25 +25,53 @@ function App() {
     }
   };
 
-  const filteredMovies =
-    selectedServices.length === 0
-      ? movies
-      : movies.filter((movie) => selectedServices.includes(movie.service));
+  const handleSearch = async () => {
+    setHasSearched(true);
+  
+    const fakeWatchlistTitles = [
+      "Y Tu Mamá También",
+      "No Other Choice",
+      "Sinners",
+      "The Dark Knight",
+    ];
+  
+    const response = await fetch("http://localhost:5001/api/watchlist/providers", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        watchlist: fakeWatchlistTitles,
+      }),
+    });
+  
+    const data = await response.json();
+    setMovies(data);
+  };
+
+  const matchingMovies = movies.filter((movie) =>
+    movie.providers?.some((provider) => selectedServices.includes(provider))
+  );
 
   return (
     <div className="app">
       <header className="hero">
-        <h1>Letterboxd Stream Finder</h1>
-        <p>Find which movies from your watchlist are available to stream.</p>
+        <h1>Letterboxd Watchlist Finder</h1>
+        <p>
+          Enter a Letterboxd username, select your streaming services, and find
+          what you can already watch.
+        </p>
       </header>
 
       <section className="search-section">
         <input
           type="text"
-          placeholder="Enter your Letterboxd username"
+          placeholder="Enter Letterboxd username"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
         />
+
+        <h3>Your Streaming Services</h3>
 
         <div className="services">
           {streamingServices.map((service) => (
@@ -79,25 +86,39 @@ function App() {
           ))}
         </div>
 
-        <button onClick={() => console.log(username, selectedServices)}>
-          Find Movies
-        </button>
+        <button onClick={handleSearch}>Find Watchlist Matches</button>
       </section>
 
       <section className="results">
-        <h2>Available Movies</h2>
+        {hasSearched && (
+          <>
+            <h2>
+              Results for {username || "Unknown User"}
+            </h2>
 
-        <div className="movie-grid">
-          {filteredMovies.map((movie) => (
-            <div className="movie-card" key={movie.title}>
-              <h3>{movie.title}</h3>
-              <p>{movie.year}</p>
-              <p>Streaming on: {movie.service}</p>
-              <p>Rating: {movie.rating}</p>
-              <p>Runtime: {movie.runtime}</p>
-            </div>
-          ))}
-        </div>
+            {selectedServices.length === 0 ? (
+              <p className="empty-message">
+                Select at least one streaming service to see matches.
+              </p>
+            ) : matchingMovies.length === 0 ? (
+              <p className="empty-message">
+                No watchlist movies found on your selected services.
+              </p>
+            ) : (
+              <div className="movie-grid">
+                {matchingMovies.map((movie) => (
+                  <div className="movie-card" key={movie.title}>
+                    {movie.poster && <img src={movie.poster} alt={movie.title} />}
+                    <h3>{movie.title}</h3>
+                    <p>{movie.year}</p>
+                    <p>Available on: {movie.providers.join(", ")}</p>
+                    <p>Rating: {movie.rating}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </section>
     </div>
   );
