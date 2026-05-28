@@ -3,11 +3,28 @@ const cors = require("cors");
 const axios = require("axios");
 require("dotenv").config();
 const cheerio = require("cheerio");
+const letterboxdRatingCache = new Map();
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
+
+const shouldIgnoreProvider = (providerName) => {
+  const name = providerName.toLowerCase();
+
+  return (
+    name.includes("amazon channel") ||
+    name.includes("roku premium channel") ||
+    name.includes("apple tv channel") ||
+    name.includes("paramount plus premium") ||
+    name.includes("paramount+ premium") ||
+    name.includes("paramount+ amazon channel") ||
+    name.includes("paramount+ roku premium channel") ||
+    name.includes("amc+ amazon channel")
+  );
+};
+
 
 const normalizeProviderName = (providerName) => {
   const name = providerName.toLowerCase();
@@ -26,17 +43,50 @@ const normalizeProviderName = (providerName) => {
 };
 
 
-const shouldIgnoreProvider = (providerName) => {
-  const name = providerName.toLowerCase();
+const checkTubiAvailability = async (movieTitle, year) => {
+  try {
+    const searchQuery = encodeURIComponent(movieTitle);
+    const response = await axios.get(`https://tubitv.com/search/${searchQuery}`);
 
-  return (
-    name.includes("amazon channel") ||
-    name.includes("roku premium channel") ||
-    name.includes("Paramount Plus Premium") ||
-    name.includes("apple tv channel") ||
-    name.includes("AMC+ Amazon Channel")
-  );
+    const html = response.data.toLowerCase();
+
+    const titleMatch = html.includes(movieTitle.toLowerCase());
+    const yearMatch = year ? html.includes(year.toString()) : true;
+
+    return titleMatch && yearMatch;
+  } catch (error) {
+    console.error("Tubi check error:", error.message);
+    return false;
+  }
 };
+
+const getLetterboxdAverageRating = async (letterboxdPath) => {
+  if (!letterboxdPath) return null;
+
+  const fullUrl = letterboxdPath.startsWith("http")
+    ? letterboxdPath
+    : `https://letterboxd.com${letterboxdPath}`;
+
+  if (letterboxdRatingCache.has(fullUrl)) {
+    return letterboxdRatingCache.get(fullUrl);
+  }
+
+  try {
+    const response = await axios.get(fullUrl);
+    const html = response.data;
+
+    const ratingMatch = html.match(/"ratingValue":\s*"?([\d.]+)"?/);
+
+    const rating = ratingMatch ? Number(ratingMatch[1]) : null;
+
+    letterboxdRatingCache.set(fullUrl, rating);
+    return rating;
+  } catch (error) {
+    console.error("Letterboxd rating error:", error.message);
+    return null;
+  }
+};
+
 
 app.get("/", (req, res) => {
   res.send("Backend is running!");
@@ -73,11 +123,6 @@ app.get("/api/search-movie", async (req, res) => {
 
 const PORT = process.env.PORT || 5001;
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
-
-
 app.get("/api/movie/:id/providers", async (req, res) => {
     try {
       const movieId = req.params.id;
@@ -104,19 +149,27 @@ app.get("/api/movie/:id/providers", async (req, res) => {
   });
 
 
-app.post("/api/watchlist/providers", async (req, res) => {
-  try {
-    const { watchlist } = req.body;
-
-    if (!watchlist || !Array.isArray(watchlist)) {
-      return res.status(400).json({ error: "Watchlist array is required" });
-    }
-
-    const results = await Promise.all(
-      watchlist.map(async (movieTitle) => {
+  app.post("/api/watchlist/providers", async (req, res) => {
+    try {
+      const { watchlist } = req.body;
+  
+      if (!watchlist || !Array.isArray(watchlist)) {
+        return res.status(400).json({ error: "Watchlist array is required" });
+      }
+  
+      const results = [];
+  
+      for (const movieData of watchlist) {
+        const movieTitle =
+          typeof movieData === "string" ? movieData : movieData.title;
+  
+        const letterboxdPath =
+          typeof movieData === "string" ? null : movieData.letterboxdPath;
+  
         const yearMatch = movieTitle.match(/\((\d{4})\)$/);
         const letterboxdYear = yearMatch ? yearMatch[1] : null;
         const cleanTitle = movieTitle.replace(/\s\(\d{4}\)$/, "");
+  
         const searchResponse = await axios.get(
           "https://api.themoviedb.org/3/search/movie",
           {
@@ -127,18 +180,20 @@ app.post("/api/watchlist/providers", async (req, res) => {
             },
           }
         );
-
+  
         const movie = searchResponse.data.results[0];
-
+  
         if (!movie) {
-          return {
+          results.push({
             title: movieTitle,
             searchedTitle: cleanTitle,
             found: false,
             providers: [],
-          };
+          });
+  
+          continue;
         }
-
+  
         const providersResponse = await axios.get(
           `https://api.themoviedb.org/3/movie/${movie.id}/watch/providers`,
           {
@@ -147,39 +202,52 @@ app.post("/api/watchlist/providers", async (req, res) => {
             },
           }
         );
-
-        const providers =
-          providersResponse.data.results?.US?.flatrate || [];
-
-        return {
+  
+        const providers = providersResponse.data.results?.US?.flatrate || [];
+  
+        const normalizedProviders = [
+          ...new Set(
+            providers
+              .filter((provider) => !shouldIgnoreProvider(provider.provider_name))
+              .map((provider) => normalizeProviderName(provider.provider_name))
+          ),
+        ];
+  
+        const isOnTubi = await checkTubiAvailability(cleanTitle, letterboxdYear);
+  
+        if (isOnTubi && !normalizedProviders.includes("Tubi")) {
+          normalizedProviders.push("Tubi");
+          
+        }
+  
+        const letterboxdAverageRating =
+          await getLetterboxdAverageRating(letterboxdPath);
+  
+        results.push({
           found: true,
           title: movie.title,
           year: movie.release_date?.slice(0, 4),
           rating: movie.vote_average,
+          letterboxdAverageRating,
           poster: movie.poster_path
             ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
             : null,
-            providers: [
-              ...new Set(
-                providers
-                  .filter((provider) => !shouldIgnoreProvider(provider.provider_name))
-                  .map((provider) => normalizeProviderName(provider.provider_name))
-              ),
-            ],
-        };
-      })
-    );
-
-    res.json(results);
-  } catch (error) {
-    console.error("Watchlist provider error:", error.message);
-    res.status(500).json({ error: "Failed to process watchlist" });
-  }
-});
+          providers: normalizedProviders,
+        });
+  
+        await new Promise((resolve) => setTimeout(resolve, 250));
+      }
+  
+      res.json(results);
+    } catch (error) {
+      console.error("Watchlist provider error:", error.message);
+      res.status(500).json({ error: "Failed to process watchlist" });
+    }
+  });
 
 app.get("/api/letterboxd-watchlist/:username", async (req, res) => {
   try {
-    const username = req.params.username;
+    const username = req.params.username.trim().toLowerCase();
     const allMovies = [];
     let page = 1;
     let hasMorePages = true;
@@ -201,8 +269,15 @@ app.get("/api/letterboxd-watchlist/:username", async (req, res) => {
           .find("[data-item-name]")
           .attr("data-item-name");
 
+          const letterboxdPath =
+          $(element).find("a").attr("href") ||
+          $(element).find("[data-target-link]").attr("data-target-link");
+        
         if (title) {
-          pageMovies.push(title);
+          pageMovies.push({
+            title,
+            letterboxdPath,
+          });
         }
       });
 
@@ -224,3 +299,45 @@ app.get("/api/letterboxd-watchlist/:username", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch Letterboxd watchlist" });
   }
 });
+
+
+app.get("/api/letterboxd-profile/:username", async (req, res) => {
+  try {
+    const username = req.params.username.trim().toLowerCase();
+
+    if (!/^[a-z0-9_]+$/.test(username)) {
+      return res.status(400).json({ error: "Invalid Letterboxd username" });
+    }
+
+    const response = await axios.get(`https://letterboxd.com/${username}/`);
+    const html = response.data;
+    const $ = cheerio.load(html);
+
+    const displayName =
+      $("meta[property='og:title']").attr("content")?.replace("’s profile", "") ||
+      username;
+
+    const avatar =
+      $("meta[property='og:image']").attr("content") ||
+      $(".avatar img").attr("src") ||
+      null;
+
+    res.json({
+      username,
+      displayName,
+      avatar,
+      profileUrl: `https://letterboxd.com/${username}/`,
+    });
+  } catch (error) {
+    console.error("Letterboxd profile error:", error.message);
+    res.status(500).json({ error: "Failed to fetch Letterboxd profile" });
+  }
+});
+
+
+
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
+

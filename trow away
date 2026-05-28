@@ -20,7 +20,6 @@ function App() {
     "Criterion",
     "Paramount+",
     "Peacock",
-    "Tubi"
   ];
 
   const handleServiceChange = (service) => {
@@ -96,15 +95,13 @@ function App() {
 
   return (
     <div className="app">
-    <header className="site-header">
-      <div className="hero">
+      <header className="hero">
         <h1>Letterboxd Watchlist Finder</h1>
         <p>
           Enter a Letterboxd username, select your streaming services, and find
           what you can already watch.
         </p>
-      </div>
-    </header>
+      </header>
 
       <section className="search-section">
         <input
@@ -145,18 +142,16 @@ function App() {
                   <img src={profile.avatar} alt={`${profile.username} avatar`} />
                 )}
                 <div>
+                  <h2>{profile.displayName || profile.username}</h2>
                   <p>@{profile.username}</p>
                 </div>
               </div>
             )}
 
             {isLoading && (
-              <div className="loading-box">
-              <div className="spinner"></div>
               <p className="loading-message">
                 Loading {loadedCount} of {totalCount} movies...
               </p>
-            </div>
             )}
 
             {selectedServices.length === 0 ? (
@@ -176,28 +171,8 @@ function App() {
                     )}
                     <h3>{movie.title}</h3>
                     <p>{movie.year}</p>
-                    <div className="provider-list">
-                    <span>Available on: </span>
-                    {movie.providers.map((provider) => (
-                      <span
-                        key={provider}
-                        className={
-                          selectedServices.includes(provider)
-                            ? "provider-match"
-                            : "provider-other"
-                        }
-                      >
-                        {provider}
-                      </span>
-                    ))}
-                  </div>
-                    <p>TMDB Rating: {movie.rating.toFixed(1)}</p>
-                    <p>
-                      Letterboxd Avg:{" "}
-                      {movie.letterboxdAverageRating
-                        ? `★ ${movie.letterboxdAverageRating.toFixed(1)}`
-                        : "N/A"}
-                    </p>
+                    <p>Available on: {movie.providers.join(", ")}</p>
+                    <p>Rating: {movie.rating}</p>
                   </div>
                 ))}
               </div>

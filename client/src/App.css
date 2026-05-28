@@ -1,17 +1,28 @@
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600;700&display=swap');
 * {
   box-sizing: border-box;
 }
-
-body {
+body,
+#root {
   margin: 0;
-  font-family: Arial, sans-serif;
+  padding: 0;
+  width: 100%;
+  min-height: 100%;
   background-color: #14181c;
-  color: white;
+  border: #14181c;
 }
 
 .app {
   min-height: 100vh;
-  padding: 40px 20px;
+  background-color: #14181c;
+  color: white;
+}
+
+.site-header {
+  background-color: #101419;
+  padding: 45px 20px;
+  margin-bottom: 40px;
+  border-bottom: 1px solid #2c3440;
 }
 
 .hero {
@@ -26,6 +37,23 @@ body {
 }
 
 .hero p {
+  color: #b0b0b0;
+}
+
+.provider-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  line-height: 1.5;
+}
+
+.provider-match {
+  color: #f5d76e;
+  font-weight: bold;
+}
+
+.provider-other {
   color: #b0b0b0;
 }
 
@@ -92,9 +120,21 @@ button:hover {
 
 .movie-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, 220px);
-  gap: 24px;
+  grid-template-columns: repeat(3, 220px);
+  gap: 80px;
   justify-content: center;
+}
+
+@media (max-width: 800px) {
+  .movie-grid {
+    grid-template-columns: repeat(2, 220px);
+  }
+}
+
+@media (max-width: 550px) {
+  .movie-grid {
+    grid-template-columns: 220px;
+  }
 }
 
 .movie-card {
@@ -109,6 +149,7 @@ button:hover {
   flex-direction: column;
   align-items: center;
   gap: 8px;
+  text-align: center;
 }
 
 .movie-card img {
@@ -127,4 +168,54 @@ button:hover {
   .movie-grid {
     grid-template-columns: 1fr;
   }
+}
+
+.loading-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  margin: 30px 0 45px;
+}
+
+.loading-message {
+  font-size: 2.5rem;
+  font-family:'Bebas Neue', sans-serif;
+  font-weight:700;
+  color: #4abaff;
+  text-align: center;
+  margin: 0;
+}
+
+.profile-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  margin-bottom: 25px;
+  font-size: 1.5rem;
+}
+
+
+.spinner {
+  width: 34px;
+  height: 34px;
+  border: 4px solid #2c3440;
+  border-top: 4px solid #00c030;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+
+.profile-card img {
+  width: 120px;
+  height: 120px;
+  border-radius: 80%;
+  object-fit: cover;
 }
