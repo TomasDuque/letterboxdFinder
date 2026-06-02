@@ -32,17 +32,21 @@ const normalizeProviderName = (providerName) => {
   if (name.includes("netflix")) return "Netflix";
   if (name.includes("hulu")) return "Hulu";
   if (name.includes("max") || name.includes("hbo")) return "HBO Max";
+  if (providerName === "YouTube Free") return "YouTube Free";
+  if (providerName === "YouTube") return "YouTube";
+  if (name.includes("freevee") || name.includes("amazon prime video free")) return "Amazon Prime Video Free";
   if (name.includes("amazon") || name.includes("prime")) return "Prime Video";
   if (name.includes("disney")) return "Disney+";
-  if (name.includes("criterion")) return "Criterion";
+  if (name.includes("kanopy")) return "Kanopy";
   if (name.includes("peacock")) return "Peacock";
   if (name.includes("paramount")) return "Paramount+";
   if (name.includes("tubi")) return "Tubi";
+  if (name.includes("plex")) return "Plex";
 
   return providerName;
 };
 
-
+/* 
 const checkTubiAvailability = async (movieTitle, year) => {
   try {
     const searchQuery = encodeURIComponent(movieTitle);
@@ -59,7 +63,7 @@ const checkTubiAvailability = async (movieTitle, year) => {
     return false;
   }
 };
-
+ */
 const getLetterboxdAverageRating = async (letterboxdPath) => {
   if (!letterboxdPath) return null;
 
@@ -148,10 +152,38 @@ app.get("/api/movie/:id/providers", async (req, res) => {
     }
   });
 
+  app.get("/api/watch-provider-regions", async (req, res) => {
+    try {
+      const response = await axios.get(
+        "https://api.themoviedb.org/3/watch/providers/regions",
+        {
+          params: {
+            api_key: process.env.TMDB_API_KEY,
+            language: "en-US",
+          },
+        }
+      );
+  
+      const regions = response.data.results || [];
+  
+      const sortedRegions = regions.sort((a, b) => {
+        if (a.iso_3166_1 === "US") return -1;
+        if (b.iso_3166_1 === "US") return 1;
+        return a.english_name.localeCompare(b.english_name);
+      });
+  
+      res.json(sortedRegions);
+    } catch (error) {
+      console.error("Region fetch error:", error.message);
+      res.status(500).json({ error: "Failed to fetch watch provider regions" });
+    }
+  });
+
 
   app.post("/api/watchlist/providers", async (req, res) => {
     try {
-      const { watchlist } = req.body;
+      const { watchlist, country = "US" } = req.body;
+      const selectedCountry = country.toUpperCase();
   
       if (!watchlist || !Array.isArray(watchlist)) {
         return res.status(400).json({ error: "Watchlist array is required" });
@@ -189,6 +221,7 @@ app.get("/api/movie/:id/providers", async (req, res) => {
             searchedTitle: cleanTitle,
             found: false,
             providers: [],
+            
           });
   
           continue;
@@ -202,38 +235,65 @@ app.get("/api/movie/:id/providers", async (req, res) => {
             },
           }
         );
+        const movieDetailsResponse = await axios.get(
+          `https://api.themoviedb.org/3/movie/${movie.id}`,
+          {
+            params: {
+              api_key: process.env.TMDB_API_KEY,
+            },
+          }
+        );
+        
+        const runtime = movieDetailsResponse.data.runtime;
   
-        const providers = providersResponse.data.results?.US?.flatrate || [];
-  
+        const countryProviders =
+          providersResponse.data.results?.[selectedCountry] || {};
+      
+        const flatrateProviders = countryProviders.flatrate || [];
+        const adProviders = countryProviders.ads || [];
+        const freeProviders = countryProviders.free || [];
+
+        const allWatchableProviders = [
+          ...flatrateProviders,
+          ...adProviders,
+          ...freeProviders,
+        ];
+
         const normalizedProviders = [
           ...new Set(
-            providers
+            allWatchableProviders
               .filter((provider) => !shouldIgnoreProvider(provider.provider_name))
               .map((provider) => normalizeProviderName(provider.provider_name))
           ),
         ];
   
-        const isOnTubi = await checkTubiAvailability(cleanTitle, letterboxdYear);
+
   
-        if (isOnTubi && !normalizedProviders.includes("Tubi")) {
+/*         const isOnTubi = await checkTubiAvailability(cleanTitle, letterboxdYear); */
+  
+/*         if (isOnTubi && !normalizedProviders.includes("Tubi")) {
           normalizedProviders.push("Tubi");
           
-        }
+        } */
   
         const letterboxdAverageRating =
           await getLetterboxdAverageRating(letterboxdPath);
   
-        results.push({
-          found: true,
-          title: movie.title,
-          year: movie.release_date?.slice(0, 4),
-          rating: movie.vote_average,
-          letterboxdAverageRating,
-          poster: movie.poster_path
-            ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
-            : null,
-          providers: normalizedProviders,
-        });
+          results.push({
+            found: true,
+            title: movie.title,
+            year: movie.release_date?.slice(0, 4),
+            releaseDate: movie.release_date,
+            runtime,
+            rating: movie.vote_average,
+            letterboxdAverageRating,
+            poster: movie.poster_path
+              ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
+              : null,
+            providers: normalizedProviders,
+            watchLink: providersResponse.data.results?.[selectedCountry]?.link || null,
+            overview: movie.overview,
+          });
   
         await new Promise((resolve) => setTimeout(resolve, 250));
       }
