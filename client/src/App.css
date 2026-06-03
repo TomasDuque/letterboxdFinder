@@ -415,6 +415,7 @@ button:hover {
 .sort-wrapper {
   position: relative;
   margin: 0 auto 35px;
+  padding-right: 40px;
   width: 320px;
 }
 
@@ -725,4 +726,37 @@ button:hover {
 
   margin-left: auto;
   margin-right: auto;
+}
+
+
+.dashboard-layout {
+  position: relative;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.main-column {
+  width: 700px;
+}
+
+.filter-sidebar {
+  position: absolute;
+  right: calc(50% + 390px);
+  width: 280px;
+}
+
+.random-sidebar {
+  position: absolute;
+  left: calc(50% + 390px);
+  width: 320px;
+}
+.genre-wrapper {
+  margin-bottom: 22px;
+}
+
+.filter-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
 }

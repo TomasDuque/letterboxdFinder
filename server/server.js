@@ -4,6 +4,19 @@ const axios = require("axios");
 require("dotenv").config();
 const cheerio = require("cheerio");
 const letterboxdRatingCache = new Map();
+const tmdbSearchCache = new Map();
+const tmdbProviderCache = new Map();
+const tmdbDetailsCache = new Map();
+
+const getCachedOrFetch = async (cache, key, fetchFunction) => {
+  if (cache.has(key)) {
+    return cache.get(key);
+  }
+
+  const data = await fetchFunction();
+  cache.set(key, data);
+  return data;
+};
 
 const app = express();
 
@@ -202,19 +215,29 @@ app.get("/api/movie/:id/providers", async (req, res) => {
         const letterboxdYear = yearMatch ? yearMatch[1] : null;
         const cleanTitle = movieTitle.replace(/\s\(\d{4}\)$/, "");
   
-        const searchResponse = await axios.get(
-          "https://api.themoviedb.org/3/search/movie",
-          {
-            params: {
-              api_key: process.env.TMDB_API_KEY,
-              query: cleanTitle,
-              year: letterboxdYear,
-            },
+        const searchCacheKey = `${cleanTitle}-${letterboxdYear || "unknown"}`;
+
+        const searchData = await getCachedOrFetch(
+          tmdbSearchCache,
+          searchCacheKey,
+          async () => {
+            const searchResponse = await axios.get(
+              "https://api.themoviedb.org/3/search/movie",
+              {
+                params: {
+                  api_key: process.env.TMDB_API_KEY,
+                  query: cleanTitle,
+                  year: letterboxdYear,
+                },
+              }
+            );
+        
+            return searchResponse.data;
           }
         );
-  
-        const movie = searchResponse.data.results[0];
-  
+        
+        const movie = searchData.results[0];
+    
         if (!movie) {
           results.push({
             title: movieTitle,
@@ -227,27 +250,46 @@ app.get("/api/movie/:id/providers", async (req, res) => {
           continue;
         }
   
-        const providersResponse = await axios.get(
-          `https://api.themoviedb.org/3/movie/${movie.id}/watch/providers`,
-          {
-            params: {
-              api_key: process.env.TMDB_API_KEY,
-            },
+        const providerCacheKey = `${movie.id}-${selectedCountry}`;
+
+        const providersData = await getCachedOrFetch(
+          tmdbProviderCache,
+          providerCacheKey,
+          async () => {
+            const providersResponse = await axios.get(
+              `https://api.themoviedb.org/3/movie/${movie.id}/watch/providers`,
+              {
+                params: {
+                  api_key: process.env.TMDB_API_KEY,
+                },
+              }
+            );
+        
+            return providersResponse.data;
           }
         );
-        const movieDetailsResponse = await axios.get(
-          `https://api.themoviedb.org/3/movie/${movie.id}`,
-          {
-            params: {
-              api_key: process.env.TMDB_API_KEY,
-            },
+
+        const detailsData = await getCachedOrFetch(
+          tmdbDetailsCache,
+          movie.id,
+          async () => {
+            const movieDetailsResponse = await axios.get(
+              `https://api.themoviedb.org/3/movie/${movie.id}`,
+              {
+                params: {
+                  api_key: process.env.TMDB_API_KEY,
+                },
+              }
+            );
+        
+            return movieDetailsResponse.data;
           }
         );
         
-        const runtime = movieDetailsResponse.data.runtime;
+        const runtime = detailsData.runtime;
   
         const countryProviders =
-          providersResponse.data.results?.[selectedCountry] || {};
+          providersData.results?.[selectedCountry] || {};
       
         const flatrateProviders = countryProviders.flatrate || [];
         const adProviders = countryProviders.ads || [];
@@ -291,8 +333,9 @@ app.get("/api/movie/:id/providers", async (req, res) => {
               ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
               : null,
             providers: normalizedProviders,
-            watchLink: providersResponse.data.results?.[selectedCountry]?.link || null,
+            watchLink: providersData.results?.[selectedCountry]?.link || null,
             overview: movie.overview,
+            genreIds: movie.genre_ids || [],
           });
   
         await new Promise((resolve) => setTimeout(resolve, 250));
