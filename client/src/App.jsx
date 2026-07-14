@@ -57,7 +57,7 @@ function App() {
 
     try {
       const profileResponse = await fetch(
-        `${API_URL}/api/letterboxd-profile/${encodeURIComponent(
+        `${API_URL}api/letterboxd-profile/${encodeURIComponent(
           cleanUsername
         )}`
       );
@@ -66,7 +66,7 @@ function App() {
       setProfile(profileData);
 
       const watchlistResponse = await fetch(
-        `${API_URL}/api/letterboxd-watchlist/${encodeURIComponent(
+        `${API_URL}api/letterboxd-watchlist/${encodeURIComponent(
           cleanUsername
         )}`
       );
@@ -82,7 +82,7 @@ function App() {
         const batch = watchlist.slice(i, i + batchSize);
 
         const providersResponse = await fetch(
-          `${API_URL}/api/watchlist/providers`,
+          `${API_URL}api/watchlist/providers`,
           {
             method: "POST",
             headers: {
@@ -110,7 +110,7 @@ function App() {
   useEffect(() => {
     const fetchCountries = async () => {
       try {
-        const response = await fetch(`${API_URL}/api/watch-provider-regions`);
+        const response = await fetch(`${API_URL}api/watch-provider-regions`);
         const data = await response.json();
         setCountries(data);
       } catch (error) {
