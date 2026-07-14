@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";import "./App.css";
 import tmdbLogo from "./assets/tmdb-logo.svg";
 
+const API_URL = import.meta.env.VITE_API_URL;
+
 function App() {
   const [username, setUsername] = useState("");
   const [selectedServices, setSelectedServices] = useState([]);
@@ -18,6 +20,7 @@ function App() {
   const [randomPick, setRandomPick] = useState(null);
   const [selectedGenres, setSelectedGenres] = useState([]);
   const [isGenreOpen, setIsGenreOpen] = useState(false);
+
 
   const streamingServices = [
     "Netflix",
@@ -54,7 +57,7 @@ function App() {
 
     try {
       const profileResponse = await fetch(
-        `http://localhost:5001/api/letterboxd-profile/${encodeURIComponent(
+        `${API_URL}/api/letterboxd-profile/${encodeURIComponent(
           cleanUsername
         )}`
       );
@@ -63,7 +66,7 @@ function App() {
       setProfile(profileData);
 
       const watchlistResponse = await fetch(
-        `http://localhost:5001/api/letterboxd-watchlist/${encodeURIComponent(
+        `${API_URL}/api/letterboxd-watchlist/${encodeURIComponent(
           cleanUsername
         )}`
       );
@@ -79,7 +82,7 @@ function App() {
         const batch = watchlist.slice(i, i + batchSize);
 
         const providersResponse = await fetch(
-          "http://localhost:5001/api/watchlist/providers",
+          `${API_URL}/api/watchlist/providers`,
           {
             method: "POST",
             headers: {
@@ -107,7 +110,7 @@ function App() {
   useEffect(() => {
     const fetchCountries = async () => {
       try {
-        const response = await fetch("http://localhost:5001/api/watch-provider-regions");
+        const response = await fetch(`${API_URL}/api/watch-provider-regions`);
         const data = await response.json();
         setCountries(data);
       } catch (error) {
