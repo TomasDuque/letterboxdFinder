@@ -8,6 +8,7 @@ const tmdbSearchCache = new Map();
 const tmdbProviderCache = new Map();
 const tmdbDetailsCache = new Map();
 
+// In-memory caches to reduce duplicate API requests during server runtime.
 const getCachedOrFetch = async (cache, key, fetchFunction) => {
   if (cache.has(key)) {
     return cache.get(key);
@@ -38,7 +39,7 @@ const shouldIgnoreProvider = (providerName) => {
   );
 };
 
-
+// TMDB provider names vary slightly. Normalize them so filtering works consistently.
 const normalizeProviderName = (providerName) => {
   const name = providerName.toLowerCase();
 
@@ -59,24 +60,7 @@ const normalizeProviderName = (providerName) => {
   return providerName;
 };
 
-/* 
-const checkTubiAvailability = async (movieTitle, year) => {
-  try {
-    const searchQuery = encodeURIComponent(movieTitle);
-    const response = await axios.get(`https://tubitv.com/search/${searchQuery}`);
 
-    const html = response.data.toLowerCase();
-
-    const titleMatch = html.includes(movieTitle.toLowerCase());
-    const yearMatch = year ? html.includes(year.toString()) : true;
-
-    return titleMatch && yearMatch;
-  } catch (error) {
-    console.error("Tubi check error:", error.message);
-    return false;
-  }
-};
- */
 const getLetterboxdAverageRating = async (letterboxdPath) => {
   if (!letterboxdPath) return null;
 
@@ -309,14 +293,6 @@ app.get("/api/movie/:id/providers", async (req, res) => {
           ),
         ];
   
-
-  
-/*         const isOnTubi = await checkTubiAvailability(cleanTitle, letterboxdYear); */
-  
-/*         if (isOnTubi && !normalizedProviders.includes("Tubi")) {
-          normalizedProviders.push("Tubi");
-          
-        } */
   
         const letterboxdAverageRating =
           await getLetterboxdAverageRating(letterboxdPath);
